@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getKnowledgeContext as getZhongkaoContext } from '@/lib/zhongkao-data';
 import { getGaokaoContext } from '@/lib/gaokao-data';
 
-// ✅ Vercel 函数超时设置（秒）
+// ✅ Vercel 函数超时（秒），注意：免费版 Node.js 最大 10s，Edge 最大 30s
+// 免费版要突破限制只能升级 Pro（$20/月，Node.js 最大 60s）
 export const maxDuration = 30;
 
 // ✅ 只从环境变量读取，无硬编码默认值
@@ -130,9 +131,9 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             model: MODEL_ID,
             messages: allMessages,
-            stream: true,  // ✅ 启用流式
+            stream: true,
             temperature: 0.7,
-            max_tokens: 4096,
+            max_tokens: 2048,
           }),
         });
 
@@ -159,84 +160,28 @@ export async function POST(request: Request) {
           }, { status: xunfeiResponse.ok ? 200 : 500 });
         }
 
-        // ✅ 正确解析讯飞 SSE 流并转发为标准 SSE
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        const stream = new ReadableStream({
-          async start(controller) {
-            const reader = xunfeiResponse.body?.getReader();
-            if (!reader) {
-              controller.close();
-              return;
-            }
-
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';  // 保留最后一个不完整的行
-
-                for (const line of lines) {
-                  const trimmedLine = line.trim();
-                  if (!trimmedLine) continue;
-
-                  // 转发 SSE 事件
-                  if (trimmedLine.startsWith('data: ')) {
-                    const data = trimmedLine.slice(6);
-                    
-                    // 跳过结束标记
-                    if (data === '[DONE]') {
-                      controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                      continue;
-                    }
-
-                    // 解析并转发
-                    try {
-                      const parsed = JSON.parse(data);
-                      const content = parsed.choices?.[0]?.delta?.content || '';
-                      if (content) {
-                        // 转发标准 SSE 格式
-                        const sseEvent = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
-                        controller.enqueue(new TextEncoder().encode(sseEvent));
-                      }
-                    } catch {
-                      // 如果解析失败，直接转发原始数据
-                      controller.enqueue(new TextEncoder().encode(`${trimmedLine}\n\n`));
-                    }
-                  } else {
-                    // 转发非 data 行（如 event:, id: 等）
-                    controller.enqueue(new TextEncoder().encode(`${trimmedLine}\n\n`));
-                  }
-                }
-              }
-
-              // 处理缓冲区剩余内容
-              if (buffer.trim()) {
-                controller.enqueue(new TextEncoder().encode(`${buffer.trim()}\n\n`));
-              }
-
-              controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-            } catch (err) {
-              console.error('Stream error:', err);
-            } finally {
-              controller.close();
-            }
-          },
+        // ✅ 直接返回讯飞 SSE 流（不重新打包，避免截断）
+        // 讯飞 MaaS API 是 OpenAI 兼容格式，前端可以直接解析
+        const headers = new Headers();
+        xunfeiResponse.headers.forEach((value, key) => {
+          // 只转发安全的 SSE 相关头
+          if (
+            key.toLowerCase() === "content-type" ||
+            key.toLowerCase() === "cache-control" ||
+            key.toLowerCase() === "connection" ||
+            key.toLowerCase() === "x-accel-buffering"
+          ) {
+            headers.set(key, value);
+          }
         });
 
-        // ✅ 返回标准 SSE 流
-        return new NextResponse(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no',  // 禁用 Nginx 缓冲
-          },
-        });
+        // 确保 SSE 正确头
+        headers.set("Content-Type", "text/event-stream");
+        headers.set("Cache-Control", "no-cache");
+        headers.set("Connection", "keep-alive");
+        headers.set("X-Accel-Buffering", "no");
+
+        return new NextResponse(xunfeiResponse.body, { headers });
       } catch (fetchError: any) {
         lastError = fetchError.message;
         if (attempt < 2) continue;

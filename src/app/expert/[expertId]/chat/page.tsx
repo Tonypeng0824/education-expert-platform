@@ -89,28 +89,58 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
     return `📋 **学生信息确认**\n• 姓名：${info.name || "未填写"}\n• 性别：${info.gender || "未填写"}\n• 学校：${info.school || "未填写"}\n• 选科：${info.subjectCombo || "未填写"}\n• 校内排名：${info.rank || "未填写"}/${info.totalStudents || "?"}\n• 语文：${info.scoreChinese || "?"} | 数学：${info.scoreMath || "?"} | 英语：${info.scoreEnglish || "?"}\n• 总分：${info.scoreTotal || "?"}\n• 目标专业：${info.goals || "未说明"}`;
   };
 
-  const sendMessage = async () => {
-    const trimmedInput = input.trim();
-    if (!trimmedInput || loading) return;
+  // ✅ 自动续传计数器，防止无限循环
+  const continueCountRef = useRef(0);
+  const MAX_CONTINUE = 5;
 
-    setInput("");
-    setError(null);
+  const sendMessage = async (continueFrom?: string) => {
+    const trimmedInput = continueFrom ? "" : input.trim();
+    if (!trimmedInput && !continueFrom) return;
+    if (!continueFrom && (loading || !trimmedInput)) return;
 
-    const userMessage: Message = { role: "user", content: trimmedInput };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    setLoading(true);
+    if (!continueFrom) {
+      setInput("");
+      setError(null);
+      continueCountRef.current = 0; // 重置续传计数
 
-    // ✅ 创建助手消息占位符（用于流式更新）
-    const assistantMessage: Message = { role: "assistant", content: "" };
-    setMessages((prev) => [...prev, assistantMessage]);
+      const userMessage: Message = { role: "user", content: trimmedInput };
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
+      setLoading(true);
+
+      // ✅ 创建助手消息占位符（用于流式更新）
+      const assistantMessage: Message = { role: "assistant", content: "" };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } else {
+      // ✅ 续传模式：复用已有的助手消息，不新增消息
+      continueCountRef.current += 1;
+      if (continueCountRef.current > MAX_CONTINUE) {
+        setError("回复内容较长，已自动分多次输出完毕。");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      // 提示用户正在续传
+      setError(`内容较长，正在加载第 ${continueCountRef.current + 1} 部分...`);
+    }
 
     try {
+      // ✅ 续传时：把"请继续"作为新用户消息附加到现有消息后面
+      const messagesToSend = continueFrom
+        ? [
+            ...messages,
+            {
+              role: "user",
+              content: "（上方回复似乎被截断了，请继续输出剩余内容，不要重复已输出的部分，直接从断点继续。）",
+            },
+          ]
+        : messages;
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({
+          messages: messagesToSend.map((m) => ({
             role: m.role,
             content: m.content,
           })),
@@ -127,8 +157,9 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
       // ✅ 处理 SSE 流式响应（健壮版）
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let accumulatedContent = "";
-      let buffer = "";  // ✅ 缓冲区处理不完整的 SSE 行
+      let accumulatedContent = continueFrom || "";
+      let buffer = "";
+      let receivedDone = false;
 
       if (!reader) {
         throw new Error("无法读取响应流");
@@ -139,7 +170,7 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        
+
         // ✅ 按行分割，保留最后一个不完整的行
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
@@ -151,9 +182,12 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
           // ✅ 处理 SSE 格式：data: {...}
           if (trimmedLine.startsWith("data: ")) {
             const data = trimmedLine.slice(6).trim();
-            
-            // 跳过结束标记
-            if (data === "[DONE]" || data === "") continue;
+
+            // ✅ 检测到结束标记（OpenAI 标准格式）
+            if (data === "[DONE]" || data === "") {
+              if (data === "[DONE]") receivedDone = true;
+              continue;
+            }
 
             try {
               const parsed = JSON.parse(data);
@@ -172,7 +206,7 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
               }
             } catch (parseErr) {
               // ✅ 解析失败时不中断，继续处理下一行
-              console.warn("SSE 解析警告:", parseErr, "原始数据:", data.slice(0, 100));
+              console.warn("[Chat] SSE 解析跳过:", data.slice(0, 80));
             }
           }
         }
@@ -204,10 +238,22 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
           }
         }
       }
+
+      // ✅ 关键：如果没收到 [DONE] 标记，说明被截断了，自动续传
+      if (!receivedDone && accumulatedContent) {
+        console.log(`[Chat] 检测到流中断（第 ${continueCountRef.current} 次），1秒后自动续传...`);
+        setError(`内容较长，正在加载第 ${continueCountRef.current + 1} 部分...`);
+        setTimeout(() => {
+          sendMessage(accumulatedContent);
+        }, 1200);
+        return; // 不设置 loading=false，保持加载状态
+      }
+
+      // ✅ 正常结束，清除续传提示
+      setError(null);
     } catch (err: any) {
       const errorMsg = err.message || "网络错误，请稍后重试";
       setError(errorMsg);
-      // 如果助手消息还是空的，添加错误提示
       setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg.role === "assistant" && !lastMsg.content) {
@@ -215,7 +261,7 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
             ...prev.slice(0, -1),
             {
               role: "assistant",
-              content: `⚠️ 抱歉，${errorMsg}。请稍后重试或重新表述您的问题。`,
+              content: `⚠️ 抱歉，${errorMsg}。请稍后重试。`,
             },
           ];
         }
