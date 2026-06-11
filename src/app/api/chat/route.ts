@@ -70,6 +70,14 @@ function checkRateLimit(ip: string): boolean {
 export async function POST(request: Request) {
   const startTime = Date.now();
 
+  // ✅ 调试日志（不暴露 API Key）
+  console.log('[Chat API] Config check:', {
+    hasApiKey: !!XUNFEI_API_KEY,
+    baseUrl: BASE_URL,
+    modelId: MODEL_ID,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
   // ✅ 提前校验 API Key
   if (!XUNFEI_API_KEY) {
     return NextResponse.json(
@@ -131,6 +139,12 @@ export async function POST(request: Request) {
           const errorCode = data?.error?.code || data?.code || '';
           const errorMsg = data?.error?.message || data?.message || response.statusText;
 
+          // ✅ 在错误中也返回使用的模型ID，方便调试
+          const debugInfo = {
+            modelId: MODEL_ID,
+            baseUrl: BASE_URL,
+          };
+
           // Engine busy - retry
           if ((errorCode === '10110' || errorCode === '10010' || 
                errorMsg.includes('Engine Busy') || errorMsg.includes('Engine is busy')) && attempt < 2) {
@@ -144,6 +158,7 @@ export async function POST(request: Request) {
             error: errorMsg || 'API请求失败',
             code: errorCode,
             elapsed,
+            debug: debugInfo,  // ✅ 返回调试信息
           }, { status: response.ok ? 200 : 500 });
         }
 
