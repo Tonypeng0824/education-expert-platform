@@ -5,4 +5,4 @@ const nextConfig = {
   // 不使用 standalone 模式，避免沙箱路径问题
   // output: 'standalone', 
 };
-module.exports = nextConfig;
+export default nextConfig;
