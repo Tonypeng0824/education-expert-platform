@@ -2,9 +2,15 @@ import { NextResponse } from 'next/server';
 import { getKnowledgeContext as getZhongkaoContext } from '@/lib/zhongkao-data';
 import { getGaokaoContext } from '@/lib/gaokao-data';
 
-const XUNFEI_API_KEY = process.env.XUNFEI_API_KEY || "025a8bdc12473ea579862e2fe09cdfc8:MDM2Mjk4ZDY1YTQzZTA4NDUzMWMwM2Mx";
-const BASE_URL = "https://maas-api.cn-huabei-1.xf-yun.com/v2";
+// ✅ 只从环境变量读取，无硬编码默认值
+const XUNFEI_API_KEY = process.env.XUNFEI_API_KEY;
+const BASE_URL = process.env.XUNFEI_BASE_URL || "https://maas-api.cn-huabei-1.xf-yun.com/v2";
 const MODEL_ID = process.env.XUNFEI_MODEL_ID || "xopqwen36v35b";
+
+// 启动时校验
+if (!XUNFEI_API_KEY) {
+  console.error("❌ 缺少 XUNFEI_API_KEY 环境变量");
+}
 
 const systemPrompts: Record<string, string> = {
   "hangzhou-zhongkao": `你是杭州中考规划专家，拥有近20年杭州中考志愿填报经验。
@@ -64,6 +70,14 @@ function checkRateLimit(ip: string): boolean {
 export async function POST(request: Request) {
   const startTime = Date.now();
 
+  // ✅ 提前校验 API Key
+  if (!XUNFEI_API_KEY) {
+    return NextResponse.json(
+      { error: '服务器未配置 API 密钥，请联系管理员' },
+      { status: 500 }
+    );
+  }
+
   try {
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
     if (!checkRateLimit(ip)) {
@@ -90,7 +104,7 @@ export async function POST(request: Request) {
     let lastError: string | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) {
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 2000));
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
         console.log(`Retry attempt ${attempt + 1} after Engine Busy...`);
       }
 
