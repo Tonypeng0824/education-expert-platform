@@ -101,9 +101,9 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
     setMessages(updatedMessages);
     setLoading(true);
 
-    // ✅ 25秒超时（Vercel函数30秒，留5秒余量）
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    // ✅ 创建助手消息占位符（用于流式更新）
+    const assistantMessage: Message = { role: "assistant", content: "" };
+    setMessages((prev) => [...prev, assistantMessage]);
 
     try {
       const response = await fetch("/api/chat", {
@@ -117,44 +117,72 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
           systemPrompt,
           expertId,
         }),
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || `请求失败 (${response.status})`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `请求失败 (${response.status})`);
       }
 
-      if (data.choices && data.choices[0]?.message?.content) {
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: data.choices[0].message.content,
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-      } else {
-        throw new Error("响应格式异常");
+      // ✅ 处理 SSE 流式响应
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = "";
+
+      if (!reader) {
+        throw new Error("无法读取响应流");
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || "";
+              if (content) {
+                accumulatedContent += content;
+                // ✅ 实时更新助手消息
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  const lastMsg = newMessages[newMessages.length - 1];
+                  if (lastMsg.role === "assistant") {
+                    lastMsg.content = accumulatedContent;
+                  }
+                  return newMessages;
+                });
+              }
+            } catch {
+              // 忽略解析错误
+            }
+          }
+        }
       }
     } catch (err: any) {
-      clearTimeout(timeoutId);
-      
-      let errorMsg = "网络错误，请稍后重试";
-      if (err.name === 'AbortError') {
-        errorMsg = "请求超时（25秒）。问题可能较复杂，建议简化后重试，或联系管理员增加超时时间。";
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-      
+      const errorMsg = err.message || "网络错误，请稍后重试";
       setError(errorMsg);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `⚠️ 抱歉，${errorMsg}。请稍后重试或重新表述您的问题。`,
-        },
-      ]);
+      // 如果助手消息还是空的，添加错误提示
+      setMessages((prev) => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg.role === "assistant" && !lastMsg.content) {
+          return [
+            ...prev.slice(0, -1),
+            {
+              role: "assistant",
+              content: `⚠️ 抱歉，${errorMsg}。请稍后重试或重新表述您的问题。`,
+            },
+          ];
+        }
+        return prev;
+      });
     } finally {
       setLoading(false);
     }

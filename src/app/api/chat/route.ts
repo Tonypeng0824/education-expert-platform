@@ -120,7 +120,8 @@ export async function POST(request: Request) {
       }
 
       try {
-        const response = await fetch(`${BASE_URL}/chat/completions`, {
+        // ✅ 使用流式响应避免超时
+        const xunfeiResponse = await fetch(`${BASE_URL}/chat/completions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -129,24 +130,17 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             model: MODEL_ID,
             messages: allMessages,
-            stream: false,
+            stream: true,  // ✅ 启用流式
             temperature: 0.7,
             max_tokens: 4096,
           }),
         });
 
-        const data = await response.json();
-
         // Handle errors
-        if (!response.ok || data?.error) {
-          const errorCode = data?.error?.code || data?.code || '';
-          const errorMsg = data?.error?.message || data?.message || response.statusText;
-
-          // ✅ 在错误中也返回使用的模型ID，方便调试
-          const debugInfo = {
-            modelId: MODEL_ID,
-            baseUrl: BASE_URL,
-          };
+        if (!xunfeiResponse.ok) {
+          const errorData = await xunfeiResponse.json().catch(() => ({}));
+          const errorCode = errorData?.error?.code || errorData?.code || '';
+          const errorMsg = errorData?.error?.message || errorData?.message || xunfeiResponse.statusText;
 
           // Engine busy - retry
           if ((errorCode === '10110' || errorCode === '10010' || 
@@ -161,16 +155,17 @@ export async function POST(request: Request) {
             error: errorMsg || 'API请求失败',
             code: errorCode,
             elapsed,
-            debug: debugInfo,  // ✅ 返回调试信息
-          }, { status: response.ok ? 200 : 500 });
+            debug: { modelId: MODEL_ID, baseUrl: BASE_URL },
+          }, { status: xunfeiResponse.ok ? 200 : 500 });
         }
 
-        // Success
-        const elapsed = Date.now() - startTime;
-        return NextResponse.json({
-          ...data,
-          _elapsed: elapsed,
-          _model: MODEL_ID,
+        // ✅ 返回流式响应（直接转发讯飞的 SSE 流）
+        return new NextResponse(xunfeiResponse.body, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
         });
       } catch (fetchError: any) {
         lastError = fetchError.message;
