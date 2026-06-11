@@ -101,6 +101,10 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
     setMessages(updatedMessages);
     setLoading(true);
 
+    // ✅ 25秒超时（Vercel函数30秒，留5秒余量）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -113,7 +117,10 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
           systemPrompt,
           expertId,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -131,9 +138,16 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
         throw new Error("响应格式异常");
       }
     } catch (err: any) {
-      const errorMsg = err.message || "网络错误，请稍后重试";
+      clearTimeout(timeoutId);
+      
+      let errorMsg = "网络错误，请稍后重试";
+      if (err.name === 'AbortError') {
+        errorMsg = "请求超时（25秒）。问题可能较复杂，建议简化后重试，或联系管理员增加超时时间。";
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
       setError(errorMsg);
-      // Add error message as assistant to keep conversation flow
       setMessages((prev) => [
         ...prev,
         {

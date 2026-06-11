@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getKnowledgeContext as getZhongkaoContext } from '@/lib/zhongkao-data';
 import { getGaokaoContext } from '@/lib/gaokao-data';
 
+// ✅ Vercel 函数超时设置（秒）
+export const maxDuration = 30;
+
 // ✅ 只从环境变量读取，无硬编码默认值
 const XUNFEI_API_KEY = process.env.XUNFEI_API_KEY;
 const BASE_URL = process.env.XUNFEI_BASE_URL || "https://maas-api.cn-huabei-1.xf-yun.com/v2";
