@@ -1,0 +1,16 @@
+# 院校信息知识库
+meta:
+  source: "教育部选科要求数据 + 就业报告"
+  total: 2
+
+universities:
+  - name: "北京大学"
+    province: "北京"
+    city: ""
+    level: "本科"
+    type: ""
+  - name: "南京体育学院"
+    province: "江苏"
+    city: "南京"
+    level: ""
+    type: "体育"

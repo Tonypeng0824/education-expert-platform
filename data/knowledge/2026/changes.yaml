@@ -1,0 +1,55 @@
+# ============================================================
+# 浙江省2026年 vs 2025年 高考政策变化追踪
+# ============================================================
+
+meta:
+  year: 2026
+  comparison_year: 2025
+  last_updated: "2026-06-05"
+
+changes:
+  - category: "选科要求"
+    change: "物化绑定持续强化"
+    description: "教育部选科指引通用版全面实施第二/三年，理工农医类专业基本全部要求物理+化学"
+    impact: "不选化学的物理考生选择面继续缩窄"
+    affected_students: "选物理但未选化学的考生"
+
+  - category: "选科指导"
+    change: "国家战略与选科衔接深化"
+    description: "阳光高考网发布《重点领域专业需求》，将国家战略性新兴产业（新一代信息技术、高端装备、新能源汽车、生物技术、绿色环保等）与选科要求系统对接"
+    impact: "考生选科时可从'国家战略→行业→专业→选科'反向规划，更具前瞻性"
+    affected_students: "所有高一选科学生"
+    reference: "详见 data/knowledge/2026/industry_insights.yaml"
+
+  - category: "招生模式"
+    change: "三位一体招生规模继续扩大"
+    description: "省属高校三位一体招生名额有逐年增加趋势"
+    impact: "更多考生可通过综合评价进入省重点高校"
+    affected_students: "学考成绩好的中等偏上考生"
+
+  - category: "分数线"
+    change: "待2026年出分后更新"
+    description: "需对比2025年各段分数线变化"
+    impact: "取决于试题难度和考生人数"
+
+  - category: "高职招生"
+    change: "高职本科贯通培养扩大"
+    description: "国家推进现代职业教育体系建设，更多高职院校与本科院校联合培养"
+    impact: "中等成绩考生多了一条上本科的路径"
+    affected_students: "一段线附近考生"
+
+  - category: "特殊类型招生"
+    change: "强基计划招生专业扩展"
+    description: "部分高校在强基计划中新增了工科方向"
+    impact: "强基计划不再仅限于纯基础学科"
+    affected_students: "顶尖考生"
+
+  - category: "考生人数"
+    change: "2026年考生人数预计与2025年基本持平"
+    description: "浙江省高考人数近年来稳定在39-40万之间"
+    impact: "竞争格局总体稳定"
+
+pending_updates:
+  - "2026年招生计划公布后更新各校计划数变化"
+  - "2026年出分后更新分数线变化"
+  - "2026年录取后更新各校录取位次变化"

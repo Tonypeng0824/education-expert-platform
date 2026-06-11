@@ -1,0 +1,161 @@
+# ============================================================
+# 浙江省历年高考分数线知识库
+# 数据来源：浙江省教育考试院 (www.zjzs.net)
+# 注意：浙江不分文理科，按实考人数比例划段
+# ============================================================
+
+meta:
+  province: "浙江"
+  last_updated: "2026-06-05"
+  note: "2026年数据将在高考出分后更新"
+
+# ============================================================
+# 历年各段分数线
+# ============================================================
+score_lines:
+  # 一段线 = 按实考人数60%划定
+  # 二段线 = 按实考人数90%划定
+  2025:
+    first_section: "待更新"    # 特殊类型招生控制线（原一段线）
+    second_section: "待更新"   # 二段线
+    gaokao_participants: "待更新"
+    first_section_rank: "待更新"  # 约前60%位次
+    notes: "2025年数据需从考试院获取"
+
+  2024:
+    first_section: 595
+    second_section: 488
+    gaokao_participants: "约39.6万"
+    first_section_rank: "约前60%"
+    notes: ""
+
+  2023:
+    first_section: 594
+    second_section: 488
+    gaokao_participants: "约39万"
+    first_section_rank: "约前60%"
+
+  2022:
+    first_section: 592
+    second_section: 497
+    gaokao_participants: "约36万"
+
+  2021:
+    first_section: 589
+    second_section: 495
+    gaokao_participants: "约33.3万"
+
+# ============================================================
+# 一分一段表索引（需从考试院下载完整数据）
+# ============================================================
+one_section_table:
+  description: >
+    一分一段表是志愿填报的核心依据。每位考生需要知道自己分数在全省的精确位次。
+    下表仅记录关键节点的分数-位次对应关系。
+  2024:
+    top_100: "待补充（需历年一分一段表数据）"
+    score_680: "待补充"
+    score_660: "待补充"
+    score_640: "待补充"
+    score_620: "待补充"
+    score_600: "待补充"
+    score_580: "待补充"
+    score_560: "待补充"
+
+# ============================================================
+# 各院校在浙录取位次参考（关键院校）
+# ============================================================
+admission_reference:
+  description: "以下为各关键院校在浙江省普通类平行志愿录取的参考位次（最低位次）"
+  note: "具体专业的录取位次可能远高于或低于院校最低位次"
+
+  top_tier:
+    - university: "北京大学"
+      typical_rank: "前100"
+    - university: "清华大学"
+      typical_rank: "前100"
+    - university: "复旦大学"
+      typical_rank: "约300"
+    - university: "上海交通大学"
+      typical_rank: "约300"
+    - university: "浙江大学"
+      typical_rank: "约5000"
+    - university: "南京大学"
+      typical_rank: "约2000"
+    - university: "中国科学技术大学"
+      typical_rank: "约1500"
+    - university: "中国人民大学"
+      typical_rank: "约1000"
+
+  high_tier:
+    - university: "浙江大学（较冷门专业）"
+      typical_rank: "约6000-8000"
+    - university: "同济大学"
+      typical_rank: "约4000"
+    - university: "华东师范大学"
+      typical_rank: "约6000"
+    - university: "上海财经大学"
+      typical_rank: "约5000"
+    - university: "东南大学"
+      typical_rank: "约7000"
+    - university: "厦门大学"
+      typical_rank: "约7000"
+
+  mid_high_tier:
+    - university: "浙江工业大学"
+      typical_rank: "约30000-45000"
+    - university: "杭州电子科技大学"
+      typical_rank: "约35000-55000"
+    - university: "温州医科大学"
+      typical_rank: "约25000-40000"
+    - university: "宁波大学"
+      typical_rank: "约30000-50000"
+    - university: "浙江工商大学"
+      typical_rank: "约40000-60000"
+    - university: "浙江财经大学"
+      typical_rank: "约45000-65000"
+    - university: "浙江师范大学"
+      typical_rank: "约35000-55000"
+    - university: "浙江理工大学"
+      typical_rank: "约45000-65000"
+    - university: "中国计量大学"
+      typical_rank: "约50000-70000"
+
+  mid_tier:
+    - university: "浙江农林大学"
+      typical_rank: "约65000-90000"
+    - university: "浙江中医药大学"
+      typical_rank: "约50000-75000"
+    - university: "温州大学"
+      typical_rank: "约55000-80000"
+    - university: "浙江海洋大学"
+      typical_rank: "约60000-85000"
+    - university: "嘉兴大学"
+      typical_rank: "约65000-90000"
+    - university: "湖州师范学院"
+      typical_rank: "约70000-95000"
+
+  special:
+    - university: "宁波诺丁汉大学"
+      typical_rank: "约50000-70000"
+      note: "中外合作，学费约10万/年"
+    - university: "西交利物浦大学"
+      typical_rank: "约50000-70000"
+      note: "中外合作，学费约8.8万/年"
+
+# ============================================================
+# 数据维护说明
+# ============================================================
+maintenance:
+  annual_update_items:
+    - "各段分数线（出分日更新）"
+    - "一分一段表关键节点（出分日更新）"
+    - "各院校录取位次（录取结束后更新）"
+    - "考生人数统计"
+  data_sources:
+    - "浙江省教育考试院官网 (www.zjzs.net)"
+    - "阳光高考网 (gaokao.chsi.com.cn)"
+    - "各高校招生网"
+  data_format:
+    - "历史数据移入 historical/ 目录"
+    - "每年新建年份目录"
