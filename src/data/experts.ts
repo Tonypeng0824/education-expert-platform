@@ -27,6 +27,7 @@ export interface ExpertConfig {
   description: string;
   icon: string;
   color: string;
+  tags: string[];
   systemPrompt: string;
   requiredFields: string[];
   tips: string[];
@@ -39,6 +40,7 @@ export const experts: ExpertConfig[] = [
     description: '专注杭州中考志愿填报，20+所高中3梯队知识库',
     icon: '🎓',
     color: '#3b82f6',
+    tags: ['一段线分析', '重高线解读', '冲稳保策略', '政策解读'],
     systemPrompt: `你是杭州中考规划专家，拥有近20年杭州中考志愿填报经验。
 
 你的职责：
@@ -65,6 +67,7 @@ export const experts: ExpertConfig[] = [
     description: '浙江新高考选科指导与志愿填报规划',
     icon: '📚',
     color: '#8b5cf6',
+    tags: ['9选3组合', '3+3模式', '志愿填报', '选科指导'],
     systemPrompt: `你是浙江学业规划专家，精通浙江新高考3+3选科模式和志愿填报规则。
 
 你的职责：
