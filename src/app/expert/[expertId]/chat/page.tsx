@@ -124,10 +124,11 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
         throw new Error(errorData.error || `请求失败 (${response.status})`);
       }
 
-      // ✅ 处理 SSE 流式响应
+      // ✅ 处理 SSE 流式响应（健壮版）
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = "";
+      let buffer = "";  // ✅ 缓冲区处理不完整的 SSE 行
 
       if (!reader) {
         throw new Error("无法读取响应流");
@@ -137,31 +138,68 @@ export default function ChatPage({ params }: { params: Promise<{ expertId: strin
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        buffer += decoder.decode(value, { stream: true });
+        
+        // ✅ 按行分割，保留最后一个不完整的行
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          // ✅ 处理 SSE 格式：data: {...}
+          if (trimmedLine.startsWith("data: ")) {
+            const data = trimmedLine.slice(6).trim();
+            
+            // 跳过结束标记
+            if (data === "[DONE]" || data === "") continue;
 
             try {
               const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content || "";
               if (content) {
                 accumulatedContent += content;
-                // ✅ 实时更新助手消息
+                // ✅ 实时更新助手消息（使用函数式更新避免闭包问题）
                 setMessages((prev) => {
                   const newMessages = [...prev];
                   const lastMsg = newMessages[newMessages.length - 1];
-                  if (lastMsg.role === "assistant") {
+                  if (lastMsg && lastMsg.role === "assistant") {
+                    lastMsg.content = accumulatedContent;
+                  }
+                  return newMessages;
+                });
+              }
+            } catch (parseErr) {
+              // ✅ 解析失败时不中断，继续处理下一行
+              console.warn("SSE 解析警告:", parseErr, "原始数据:", data.slice(0, 100));
+            }
+          }
+        }
+      }
+
+      // ✅ 处理缓冲区剩余内容
+      if (buffer.trim()) {
+        const trimmedBuffer = buffer.trim();
+        if (trimmedBuffer.startsWith("data: ")) {
+          const data = trimmedBuffer.slice(6).trim();
+          if (data && data !== "[DONE]") {
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || "";
+              if (content) {
+                accumulatedContent += content;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  const lastMsg = newMessages[newMessages.length - 1];
+                  if (lastMsg && lastMsg.role === "assistant") {
                     lastMsg.content = accumulatedContent;
                   }
                   return newMessages;
                 });
               }
             } catch {
-              // 忽略解析错误
+              // 忽略
             }
           }
         }
